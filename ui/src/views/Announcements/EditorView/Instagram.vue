@@ -20,13 +20,22 @@
 
         // replace markdown with unicode
 
+        // links are replaced by "Link in bio"
+        const linkRegex =
+            /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,4}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g;
+        const linkReplacer = (match: string, p1: string, p2: string) => {
+            return "**Link in bio**";
+        };
+
+        const hyperlinkText = fullText.replace(linkRegex, linkReplacer);
+
         // bold text is surrounded by * or **
         const boldRegex = /\*\*(.*?)\*\*|\*(.*?)\*/g;
         const boldReplacer = (match: string, ...groups: string[]) => {
             const p = groups.filter((g) => g)[0];
             return toUnicodeVariant(p, "bold sans");
         };
-        const boldText = fullText.replace(boldRegex, boldReplacer);
+        const boldText = hyperlinkText.replace(boldRegex, boldReplacer);
 
         // italic text is surrounded by _ or __
         const italicRegex = /__(.*?)__|_(.*?)_/g;
@@ -36,18 +45,7 @@
         };
         const italicText = boldText.replace(italicRegex, italicReplacer);
 
-        // hyperlinks are surrounded by []()
-        const hyperlinkRegex = /\[(.*?)\]\((.*?)\)/g;
-        const hyperlinkReplacer = (match: string, ...groups: string[]) => {
-            const p = groups.filter((g) => g);
-            return toUnicodeVariant(p[1], "monospace");
-        };
-        const hyperlinkText = italicText.replace(
-            hyperlinkRegex,
-            hyperlinkReplacer
-        );
-
-        return hyperlinkText;
+        return italicText;
     };
 
     const copyToClipbaord = () => {

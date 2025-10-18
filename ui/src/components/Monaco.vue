@@ -77,4 +77,10 @@
     div {
         min-height: calc(10 * 19px);
     }
+
+    @media screen and (max-width: 600px) {
+        div {
+            min-height: calc(20 * 19px);
+        }
+    }
 </style>

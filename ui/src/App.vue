@@ -27,30 +27,30 @@
         id="body"
         v-else-if="userData"
     >
-        <header>
+        <aside>
             <router-link to="/">
                 <img
                     alt="Stair Logo"
                     class="logo"
-                    src="/logo_protected_inverted.png"
-                    height="50"
+                    src="/logo/pr.svg"
+                    height="80"
                 />
             </router-link>
             <nav>
                 <RouterLink
-                    title="Manage Discord Users"
-                    to="/discord/users"
-                    ><span class="material-symbols-rounded"
-                        >group</span
-                    ></RouterLink
-                >
-                <RouterLink
                     title="Announcements"
                     to="/announcements"
-                    ><span class="material-symbols-rounded"
-                        >campaign</span
-                    ></RouterLink
                 >
+                    <span class="material-symbols-rounded">campaign</span>
+                    <span class="name">Announcements</span>
+                </RouterLink>
+                <RouterLink
+                    title="Manage Discord Users"
+                    to="/discord/users"
+                >
+                    <span class="material-symbols-rounded">group</span>
+                    <span class="name">Discord Users</span>
+                </RouterLink>
                 <RouterLink
                     title="Promotion Schedule"
                     to="/promotion-schedule"
@@ -58,34 +58,32 @@
                     <span class="material-symbols-rounded">
                         calendar_month
                     </span>
+                    <span class="name">Promotion Schedule</span>
                 </RouterLink>
-
+            </nav>
+            <div
+                @click.stop="showUserOptions = true"
+                class="user"
+            >
+                <span>{{ userData.displayName }}</span>
                 <div
-                    @click.stop="showUserOptions = true"
-                    class="user"
+                    @click.stop
+                    class="options"
+                    v-if="showUserOptions"
                 >
-                    <span>{{ userData.displayName }}</span>
-                    <div
-                        @click.stop
-                        class="options"
-                        v-if="showUserOptions"
-                    >
-                        <div class="action">
-                            <a href="/api/auth/signout">
-                                Sign out
-                                <span class="material-symbols-rounded"
-                                    >logout</span
-                                >
-                            </a>
-                        </div>
-                        <div class="data">
-                            <h2>{{ userData.userPrincipalName }}</h2>
-                            <p>{{ userData.mail }}</p>
-                        </div>
+                    <div class="action">
+                        <a href="/api/auth/signout">
+                            <span>Sign out</span>
+                            <span class="material-symbols-rounded">logout</span>
+                        </a>
+                    </div>
+                    <div class="data">
+                        <h2>{{ userData.userPrincipalName }}</h2>
+                        <p>{{ userData.mail }}</p>
                     </div>
                 </div>
-            </nav>
-        </header>
+            </div>
+        </aside>
 
         <div id="container">
             <RouterView />
@@ -97,92 +95,149 @@
     #body {
         min-height: 100vh;
         min-height: 100svh;
-        display: flex;
-        flex-direction: column;
+
+        --sidebar-width: 270px;
+        --sidebar-height: 0;
+
+        display: grid;
+        grid-template-columns: minmax(var(--sidebar-width), 350px) 1fr;
     }
 
-    header {
-        width: 100%;
+    @media screen and (max-width: 768px) {
+        #body {
+            --sidebar-width: 0;
+            --sidebar-height: 80px;
+            display: block;
+
+            aside {
+                flex-direction: row;
+                width: 100%;
+                padding: 1em;
+                height: var(--sidebar-height) !important;
+
+                nav {
+                    flex-direction: row;
+                }
+
+                a:has(img) {
+                    display: none;
+                }
+
+                nav a {
+                    justify-content: center;
+                    aspect-ratio: 1 / 1;
+                    padding: 0.5em;
+
+                    & .name {
+                        display: none;
+                    }
+                }
+            }
+
+            .user .options {
+                bottom: auto;
+                top: 100%;
+                right: 0;
+                left: auto;
+            }
+        }
+    }
+
+    aside {
+        background: var(--bg-soft);
+        border-right: 2px solid var(--bg-muted);
+        height: 100%;
         display: flex;
+        flex-direction: column;
         justify-content: space-between;
-        padding-right: 2rem;
+        padding: 2em;
 
         position: fixed;
         top: 0;
+        left: 0;
         z-index: 1000;
     }
 
     nav {
         display: flex;
-        align-items: center;
-        gap: 1rem;
+        flex-direction: column;
         font-size: 1rem;
 
         & a {
-            color: var(--c-white-1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5em 1em;
+            width: 100%;
+            color: var(--fg-text-muted);
+            border-radius: 0.25em;
+            border: 1px solid transparent;
 
             &:hover {
-                color: var(--c-stair-graphite);
+                color: var(--c-accent);
+                background: var(--bg-muted);
             }
 
             &.router-link-active {
-                text-decoration: underline;
+                color: var(--fg-text);
+                background: var(--bg-muted);
             }
         }
+    }
 
-        .user {
-            cursor: pointer;
-            height: 100%;
-            position: relative;
+    .user {
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .options {
+            position: absolute;
+            cursor: auto;
+            bottom: 100%;
+            left: 0;
+            background: var(--bg-soft);
+            border: 1px solid var(--bg-muted);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            border-radius: 0.5rem;
+            padding: 1rem;
             display: flex;
-            align-items: center;
-            padding: 0.5rem;
+            flex-direction: column;
+            gap: 1em;
+            color: var(--fg-text);
 
-            &:hover {
-                background: rgba(255, 255, 255, 0.1);
+            .action {
+                display: flex;
+                justify-content: flex-end;
             }
 
-            .options {
-                position: absolute;
-                cursor: auto;
-                top: 100%;
-                right: 0;
-                background: var(--bg-soft);
-                border: 1px solid var(--bg-muted);
-                box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-                border-radius: 0.5rem;
-                padding: 1rem;
-                display: flex;
-                flex-direction: column;
-                gap: 2rem;
+            a {
                 color: var(--fg-text);
+                display: flex;
+                align-items: center;
+                padding: 0.5rem;
+                text-align: center;
+                text-decoration: none;
 
-                .action {
-                    display: flex;
-                    justify-content: flex-end;
+                &:hover {
+                    color: var(--c-accent);
+                    background: var(--bg-muted);
+                    border-radius: 0.25em;
                 }
 
-                a {
-                    color: var(--fg-text);
-                    display: block;
-                    padding: 0.5rem;
-                    text-align: center;
-                    text-decoration: none;
-
-                    &:hover {
-                        text-decoration: underline;
-                    }
-
-                    & span {
-                        font-size: 1rem;
-                        margin-left: 0.5em;
-                        translate: 0 0.1em;
-                    }
+                & span.material-symbols-rounded {
+                    font-size: 1rem;
+                    margin-left: 0.5em;
                 }
+            }
 
-                .data {
-                    padding: 0 1rem;
-                }
+            .data {
+                padding: 0 1rem;
             }
         }
     }
@@ -191,13 +246,16 @@
         padding: 0;
         height: 100%;
         min-height: 100%;
-        margin-top: 54px;
         position: relative;
         overflow: clip;
+        grid-column: 2;
+        padding-top: var(--sidebar-height);
+        width: 100%;
+        max-width: calc(100svw - var(--sidebar-width));
 
         & > main {
-            margin: 0 auto;
             max-width: 1280px;
+            width: 100%;
             padding: 2rem;
             overflow: auto;
             height: 100%;

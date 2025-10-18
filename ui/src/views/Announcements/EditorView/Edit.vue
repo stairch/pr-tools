@@ -102,11 +102,21 @@
 
 <template>
     <HelpModal ref="helpModal" />
-    <input
-        type="text"
-        v-model="announcement.title"
-        placeholder="Title"
-    />
+    <div class="title-and-delete">
+        <input
+            type="text"
+            v-model="announcement.title"
+            placeholder="Title"
+        />
+        <button
+            @click="deleteAnnouncement"
+            class="secondary danger small"
+            :disabled="!announcement.id"
+        >
+            <span class="material-symbols-rounded">delete</span>
+            Delete
+        </button>
+    </div>
     <MultiFileMonaco
         v-model="announcement.message"
         :filenames="{ de: 'German Content', en: 'English Content' }"
@@ -124,17 +134,9 @@
         </button>
         <button
             @click="save"
-            class="danger"
             :disabled="saveDisabled"
         >
-            {{ announcement.id ? "Update" : "Create" }}
-        </button>
-        <button
-            @click="deleteAnnouncement"
-            class="danger"
-            :disabled="!announcement.id"
-        >
-            Delete
+            {{ announcement.id ? "Save" : "Create" }}
         </button>
     </div>
 </template>
@@ -145,6 +147,13 @@
         grid-template-columns: 25ch 1fr;
         align-items: start;
         gap: 1em;
+    }
+
+    .title-and-delete {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1em;
+        align-items: center;
     }
 
     main {

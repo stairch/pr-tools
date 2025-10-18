@@ -85,8 +85,11 @@ button {
     font-weight: 700;
     font-family: Ingra, Arial, Helvetica, sans-serif;
     line-height: 1.25;
-    color: var(--c-white-1);
-    background: var(--c-stair-green);
+    --c: var(--c-stair-green);
+    --inv: var(--c-white-1);
+
+    color: var(--inv);
+    background: var(--c);
     border: none;
     border-radius: 0.5em;
     padding: 1em 2em;
@@ -94,39 +97,32 @@ button {
     outline: none;
 
     &:hover {
-        background: var(--c-stair-lime);
+        outline: 1px solid var(--c);
     }
 
     &.secondary {
         background: inherit;
-        color: var(--c-stair-green);
+        color: var(--c);
         border: 1px solid var(--bg-muted);
 
         &:hover {
             background: var(--bg-base);
-            border: 1px solid var(--c-stair-green);
+            border-color: var(--c);
         }
     }
 
     &.danger {
-        background: var(--c-stair-burgundy);
-
-        &:hover {
-            background: var(--c-stair-berry);
-        }
+        --c: var(--c-stair-burgundy);
     }
 
     &.warning {
-        background: var(--c-stair-mustard);
-
-        &:hover {
-            background: var(--c-stair-yellow);
-        }
+        --c: var(--c-stair-mustard);
     }
 
     &:disabled {
         background: var(--c-stair-grey);
         cursor: not-allowed;
+        outline: none;
 
         &:hover {
             background: var(--c-white-4);
@@ -147,6 +143,17 @@ button:has(span.material-symbols-rounded) {
     align-items: center;
     gap: 1em;
     justify-content: center;
+}
+
+button.small:has(span.material-symbols-rounded) {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    justify-content: center;
+
+    & span.material-symbols-rounded {
+        font-size: 0.9rem;
+    }
 }
 
 .context-view.monaco-component * {

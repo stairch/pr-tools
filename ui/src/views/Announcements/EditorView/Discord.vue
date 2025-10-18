@@ -207,8 +207,9 @@
             class="material-symbols-rounded"
             @click="img = null"
             :title="imgUrl ? 'Remove Image' : ''"
+            v-if="imgUrl"
         >
-            {{ imgUrl ? "hide_image" : "" }}
+            hide_image
         </span>
         <button
             @click="postAnnouncement"
@@ -243,6 +244,10 @@
         display: flex;
         gap: 1em;
         align-items: center;
+
+        & span {
+            cursor: pointer;
+        }
     }
 
     .align-right {
