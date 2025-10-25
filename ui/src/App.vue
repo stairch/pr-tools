@@ -28,13 +28,17 @@
         v-else-if="userData"
     >
         <aside>
-            <router-link to="/">
+            <router-link
+                to="/"
+                class="app-name"
+            >
                 <img
                     alt="Stair Logo"
                     class="logo"
-                    src="/logo/pr.svg"
-                    height="80"
+                    src="/icon/stair.svg"
+                    height="50"
                 />
+                <h1>PR</h1>
             </router-link>
             <nav>
                 <RouterLink
@@ -126,7 +130,8 @@
                 nav a {
                     justify-content: center;
                     aspect-ratio: 1 / 1;
-                    padding: 0.5em;
+                    padding: 1em;
+                    height: max-content;
 
                     & .name {
                         display: none;
@@ -140,6 +145,23 @@
                 right: 0;
                 left: auto;
             }
+        }
+    }
+
+    .app-name {
+        display: flex;
+        align-items: center;
+        margin-bottom: 2rem;
+        text-decoration: none;
+
+        &:hover {
+            opacity: 0.8;
+        }
+
+        h1 {
+            color: var(--fg-text);
+            font-weight: 950;
+            font-size: 1.5rem;
         }
     }
 
