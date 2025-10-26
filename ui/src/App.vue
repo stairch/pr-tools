@@ -107,6 +107,12 @@
         grid-template-columns: minmax(var(--sidebar-width), 350px) 1fr;
     }
 
+    @media screen and (max-width: 1630px) {
+        #body {
+            grid-template-columns: var(--sidebar-width) 1fr;
+        }
+    }
+
     @media screen and (max-width: 768px) {
         #body {
             --sidebar-width: 0;
