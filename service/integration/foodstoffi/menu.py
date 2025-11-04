@@ -22,7 +22,7 @@ from db.datamodels.announcement import AnnouncementType
 from integration.discord.stan import Stan
 from integration.discord.persona import PersonaSender, Persona
 
-URL = "https://app.food2050.ch/de/foodstoffi/foodstoffi/menu/foodstoffi/weekly"
+URL = "https://app.food2050.ch/de/v2/zfv/hslu,standort-rotkreuz/hslu-iandw/mittagsverpflegung/menu/weekly"  # pylint: disable=line-too-long
 
 
 _PERSONA = Persona.get("Chef Stan-dwich", Persona.default())
@@ -30,7 +30,7 @@ _ANNOUNCEMENT_TYPE = AnnouncementType.get("canteen-menu", AnnouncementType.defau
 
 
 @dataclass
-class Recipe:  # pylint: disable=too-many-instance-attributes
+class Dish:  # pylint: disable=too-many-instance-attributes
     """A recipe"""
 
     typename: str
@@ -45,7 +45,7 @@ class Recipe:  # pylint: disable=too-many-instance-attributes
     _allergens: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, value: JDict, category: str) -> Recipe | None:
+    def from_dict(cls, value: JDict, category: str) -> Dish | None:
         """Create a recipe from a dictionary"""
         if not value:
             return None
@@ -57,13 +57,18 @@ class Recipe:  # pylint: disable=too-many-instance-attributes
             typename=value.ensure("__typename", str),
             id=value.ensure("id", str),
             category=category,
-            is_balanced=value.ensure("isBalanced", bool),
-            title=value.ensure("title", str),
-            climate_prediction=value.ensureCast("climatePrediction", JDict)
-            .ensure("rating", str)
+            is_balanced=value.chain().ensure(
+                "stats.food2050HealthRating.isBalanced", bool
+            ),
+            title=value.ensure("name", str),
+            climate_prediction=value.chain()
+            .ensure("stats.food2050climateImpact.rating", str)
             .lower(),
             slug=value.ensure("slug", str),
-            _allergens=value.ensure("allergens", str).split(","),
+            _allergens=[
+                JDict(allergen).chain().ensure("allergen.externalId", str)
+                for allergen in value.ensure("allergens", list)
+            ],
             is_vegan=value.ensure("isVegan", bool),
             is_vegetarian=value.ensure("isVegetarian", bool),
         )
@@ -82,7 +87,6 @@ class Recipe:  # pylint: disable=too-many-instance-attributes
         """Get the recipe as an embed"""
         embed = discord.Embed(
             title=self.category,
-            url=f"https://app.food2050.ch/de/foodstoffi/foodstoffi/food-profile/{self.slug}",
             description=self.title,
             color=STAIR_GREEN,
         )
@@ -102,21 +106,21 @@ class Recipe:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass
-class RecipeItem:
+class MenuItem:
     """A recipe item"""
 
     typename: str
     date: datetime.date
-    recipe: Recipe | None
+    recipe: Dish | None
 
     @classmethod
-    def from_dict(cls, value: JDict, category: str) -> RecipeItem | None:
+    def from_dict(cls, value: JDict, date: datetime.date) -> MenuItem | None:
         """Create a recipe item from a dictionary"""
+        category = value.chain().ensure("category.name", str)
         item = cls(
             typename=value.ensure("__typename", str),
-            date=datetime.datetime.fromisoformat(value.ensure("date", str)).date()
-            + datetime.timedelta(days=1),
-            recipe=Recipe.from_dict(value.ensureCast("recipe", JDict), category),
+            date=date,
+            recipe=Dish.from_dict(value.ensureCast("dish", JDict), category),
         )
         if not item.recipe:
             return None
@@ -124,21 +128,23 @@ class RecipeItem:
 
 
 @dataclass
-class Category:
+class CanteenDay:
     """A category of recipes"""
 
     typename: str
     id: str
-    name: str
-    recipes: list[RecipeItem]
+    date: datetime.date
+    recipes: list[MenuItem]
 
     @classmethod
-    def from_dict(cls, value: JDict) -> Category:
+    def from_dict(cls, value: JDict) -> CanteenDay:
         """Create a category from a dictionary"""
-        name = value.ensure("displayName", str)
+        date = datetime.datetime.fromisoformat(
+            value.chain().ensure("from.dateLocal", str)
+        ).date()
         recipes = [
-            RecipeItem.from_dict(recipe, name)
-            for recipe in value.ensureCast("dailyRecipies", JList)
+            MenuItem.from_dict(recipe, date)
+            for recipe in value.ensureCast("menuItems", JList)
             .iterator()
             .ensureCast(JDict)
         ]
@@ -146,18 +152,9 @@ class Category:
         return cls(
             typename=value.ensure("__typename", str),
             id=value.ensure("id", str),
-            name=name,
+            date=date,
             recipes=recipes,  # type: ignore
         )
-
-    @property
-    def todays_recipe(self) -> Recipe | None:
-        """Get the recipe for today"""
-        today = datetime.date.today()
-        for recipe in self.recipes:
-            if recipe.date == today:
-                return recipe.recipe
-        return None
 
 
 @dataclass
@@ -167,7 +164,7 @@ class Menu:
     typename: str
     id: str
     note: str
-    categories: list[Category]
+    categories: list[CanteenDay]
 
     @classmethod
     def _from_dict(cls, value: JDict) -> Menu:
@@ -176,26 +173,24 @@ class Menu:
             id=value.ensure("id", str),
             note=value.ensure("note", str),
             categories=[
-                Category.from_dict(category)
-                for category in value.ensureCast("categories", JList)
-                .ensureCast(0, JDict)
-                .ensureCast("items", JList)
+                CanteenDay.from_dict(category)
+                for category in value.chain()
+                .ensureCast("calendar.week.daily", JList)
                 .iterator()
                 .ensureCast(JDict)
             ],
         )
 
     @property
-    def today_recipes(self) -> list[Recipe]:
+    def todays_dishes(self) -> list[Dish]:
         """Get the recipes for today"""
-        return [
-            category.todays_recipe
-            for category in self.categories
-            if category.todays_recipe
-        ]
+        for category in self.categories:
+            if category.date == datetime.date.today():
+                return [item.recipe for item in category.recipes if item.recipe]
+        return []
 
     @staticmethod
-    async def get_todays_menu() -> list[Recipe] | None:
+    async def get_todays_menu() -> list[Dish] | None:
         """Get the menu for today"""
         async with aiohttp.ClientSession() as session:
             async with session.get(URL) as response:
@@ -206,10 +201,10 @@ class Menu:
                     return None
                 props = JDict.fromString(str(tag.string)).chain()
         raw_menu = props.ensureCast(
-            "props.pageProps.query.location.kitchen.digitalMenu", JDict
+            "props.pageProps.organisation.outlet.menuCategory", JDict
         )
         menu = Menu._from_dict(raw_menu)
-        today_recipes = menu.today_recipes
+        today_recipes = menu.todays_dishes
         if not today_recipes:
             return None
         if any("ferien" in x.title.lower() for x in today_recipes):
@@ -237,6 +232,8 @@ class SendFoodstoffiMenuTask:
         if todays_menu is None:
             self._logger.warning("No menu available")
             return
+        self._logger.debug("Sending today's menu to servers: %s", todays_menu)
+
         for server in self._discord_bot.servers.values():
             channel = server.get_announcement_channel(_ANNOUNCEMENT_TYPE)
 
