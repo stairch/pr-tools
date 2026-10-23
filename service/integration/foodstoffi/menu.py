@@ -65,6 +65,7 @@ class Dish:  # pylint: disable=too-many-instance-attributes
     category: str
     is_balanced: bool
     title: str
+    description: str
     climate_prediction: str
     slug: str
     is_vegan: bool
@@ -77,7 +78,7 @@ class Dish:  # pylint: disable=too-many-instance-attributes
         if not value:
             return None
 
-        if "Geschlossen" in value.ensure("title", str):
+        if "Geschlossen" in value.ensure("name", str):
             return None
 
         return cls(
@@ -88,6 +89,7 @@ class Dish:  # pylint: disable=too-many-instance-attributes
                 "stats.food2050HealthRating.isBalanced", bool
             ),
             title=value.ensure("name", str),
+            description=value.ensure("description", str),
             climate_prediction=value.chain()
             .ensure("stats.food2050climateImpact.rating", str)
             .lower(),
@@ -114,7 +116,9 @@ class Dish:  # pylint: disable=too-many-instance-attributes
         """Get the recipe as an embed"""
         embed = discord.Embed(
             title=self.category,
-            description=self.title,
+            description=f"{self.title}, {self.description}"
+            if self.description
+            else self.title,
             color=STAIR_GREEN,
         )
         tags: list[str] = []
