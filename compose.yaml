@@ -12,7 +12,7 @@ services:
             - db
         env_file:
             - .env
-        restart: always
+        restart: unless-stopped
     postgres:
         image: postgres:16-alpine
         volumes:
@@ -21,20 +21,20 @@ services:
             - db
         env_file:
             - .env
-        restart: always
+        restart: unless-stopped
     nginx:
         build:
             context: ui
             dockerfile: Dockerfile
         ports:
-            - 8080:80
+            - 127.0.0.1:8080:80
         volumes:
             - ./common:/var/www/common:ro
         depends_on:
             - stan
         networks:
             - default
-        restart: always
+        restart: unless-stopped
 
 networks:
     default:
