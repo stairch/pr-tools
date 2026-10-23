@@ -7,7 +7,9 @@ __copyright__ = "Copyright (c) 2024 STAIR. All Rights Reserved."
 __email__ = "info@stair.ch"
 
 from dataclasses import dataclass, field
+from typing import Any
 import re
+import json
 import datetime
 import logging
 
@@ -22,11 +24,36 @@ from db.datamodels.announcement import AnnouncementType
 from integration.discord.stan import Stan
 from integration.discord.persona import PersonaSender, Persona
 
-URL = "https://app.food2050.ch/de/v2/zfv/hslu,standort-rotkreuz/hslu-iandw/mittagsverpflegung/menu/weekly"  # pylint: disable=line-too-long
+URL = "https://app.food2050.ch/de/zfv/hslu,standort-rotkreuz/hslu-iandw/mittagsverpflegung/menu/weekly"  # pylint: disable=line-too-long
+
+
+_RSC_CHUNK = re.compile(r"self\.__next_f\.push\((.*)\)", re.DOTALL)
+_RSC_REF = re.compile(r"\$([0-9a-f]+):(.+)")
+_MENU_CATEGORY_KEY = '"menuCategory":'
 
 
 _PERSONA = Persona.get("Chef Stan-dwich", Persona.default())
 _ANNOUNCEMENT_TYPE = AnnouncementType.get("canteen-menu", AnnouncementType.default())
+
+
+def _resolve_rsc_refs(node: Any, row_id: str, row: Any) -> Any:
+    """Replace RSC references into `row` with the objects they point to"""
+    if isinstance(node, list):
+        return [_resolve_rsc_refs(x, row_id, row) for x in node]
+    if isinstance(node, dict):
+        return {k: _resolve_rsc_refs(v, row_id, row) for k, v in node.items()}
+    match = _RSC_REF.fullmatch(node) if isinstance(node, str) else None
+    if not match or match.group(1) != row_id:
+        return node
+    target = row
+    for key in match.group(2).split(":"):
+        if isinstance(target, dict):
+            target = target[key]
+        elif target[:1] == ["$"] and key == "props":
+            target = target[3]
+        else:
+            target = target[int(key)]
+    return _resolve_rsc_refs(target, row_id, row)
 
 
 @dataclass
@@ -190,19 +217,41 @@ class Menu:
         return []
 
     @staticmethod
+    def _extract_menu_category(html: str) -> JDict | None:
+        """Extract the menu category from the page's RSC payload"""
+        soup = bs4.BeautifulSoup(html, "html.parser")
+        payload = ""
+        for script in soup.find_all("script"):
+            if not isinstance(script, bs4.Tag):
+                continue
+            match = _RSC_CHUNK.fullmatch(script.string or "")
+            if not match:
+                continue
+            chunk = json.loads(match.group(1))
+            if chunk[0] == 1:
+                payload += chunk[1]
+        start = payload.find(_MENU_CATEGORY_KEY)
+        if start == -1:
+            return None
+        decoder = json.JSONDecoder()
+
+        row_start = payload.rfind("\n", 0, start) + 1
+        row_id, _, row = payload[row_start:].partition(":")
+        raw_menu, _ = decoder.raw_decode(payload, start + len(_MENU_CATEGORY_KEY))
+        return JDict(_resolve_rsc_refs(raw_menu, row_id, decoder.raw_decode(row)[0]))
+
+    @staticmethod
     async def get_todays_menu() -> list[Dish] | None:
         """Get the menu for today"""
-        async with aiohttp.ClientSession() as session:
-            async with session.get(URL) as response:
-                html = await response.text()
-                soup = bs4.BeautifulSoup(html, "html.parser")
-                tag = soup.find("script", {"id": "__NEXT_DATA__"})
-                if not isinstance(tag, bs4.Tag):
-                    return None
-                props = JDict.fromString(str(tag.string)).chain()
-        raw_menu = props.ensureCast(
-            "props.pageProps.organisation.outlet.menuCategory", JDict
-        )
+        async with aiohttp.ClientSession() as session, session.get(URL) as response:
+            html = await response.text()
+        raw_menu = Menu._extract_menu_category(html)
+        if raw_menu is None:
+            logging.getLogger("FoodstoffiMenu").error(
+                "Could not find menu data on %s, did they change the page again? ._.",
+                URL,
+            )
+            return None
         menu = Menu._from_dict(raw_menu)
         today_recipes = menu.todays_dishes
         if not today_recipes:
